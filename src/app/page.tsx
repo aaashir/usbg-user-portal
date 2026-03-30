@@ -7,39 +7,39 @@ import ProgressTracker from "@/components/dashboard/ProgressTracker";
 
 export default function Home() {
   return (
-    <div className="animate-in fade-in duration-500">
-      <header className="mb-8">
-        <h1 className="text-3xl sm:text-5xl font-bold text-[#1F315C] tracking-tight mb-2 leading-tight">
+    <div>
+      <header className="mb-8 animate-fade-up delay-0">
+        <h1 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-[#1F315C] tracking-tight mb-2 leading-tight">
           Welcome to Your Grant Portal
         </h1>
-        <p className="text-[#3E5A8A] text-lg sm:text-3xl font-semibold">
-          Find and Apply for Grants with Ease.
+        <p className="text-[#3E5A8A] text-base sm:text-lg lg:text-3xl font-semibold">
+          Access Current Grant Opportunities and Application Materials.
         </p>
       </header>
 
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
+          <div className="animate-fade-up delay-75">
             <GrantMatches />
           </div>
-          <div>
+          <div className="animate-fade-up delay-150">
             <ApplicationsInProgress />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div>
+          <div className="animate-fade-up delay-225">
             <ReadinessChecklist />
           </div>
-          <div>
+          <div className="animate-fade-up delay-300">
             <AIAssistant />
           </div>
-          <div>
+          <div className="animate-fade-up delay-375">
             <DocumentVault />
           </div>
         </div>
 
-        <div>
+        <div className="animate-fade-up delay-450">
           <ProgressTracker />
         </div>
       </div>

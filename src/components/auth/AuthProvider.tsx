@@ -17,34 +17,33 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = 'usbg:hubspotUser';
-const DEFAULT_VERIFY_URL = 'https://us-central1-usbg-database.cloudfunctions.net/checkStatusVerify';
 
 function normalizeZip(zip: string) {
   return zip.trim().slice(0, 5);
 }
 
 async function verifyHubspotContact(email: string, zipCode: string): Promise<HubspotContact | null> {
-  const verifyUrl = process.env.NEXT_PUBLIC_USBG_VERIFY_URL || DEFAULT_VERIFY_URL;
-  const res = await fetch(verifyUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, zipCode }),
-  });
-
-  if (!res.ok) {
-    throw new Error('Unable to verify user right now.');
+  // Auth is handled entirely via Firestore crm_contacts
+  try {
+    const res = await fetch('/api/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, zipCode }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { found?: boolean; contact?: HubspotContact; zipMismatch?: boolean; noAccess?: boolean };
+    if (data.found && data.contact)    return data.contact;
+    if (data.found && data.noAccess)   return { properties: { pr: '' } }; // exists but no subscription
+    return null;
+  } catch {
+    return null;
   }
-
-  const data = (await res.json()) as unknown;
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  const first = data[0] as HubspotContact;
-  return first ?? null;
 }
 
 function hasAccess(contact: HubspotContact | null) {
   const pr = String(contact?.properties?.['pr'] ?? '');
-  return pr === 'SF' || pr === 'EF' || pr === 'TRUE';
+  return pr === 'SF' || pr === 'EF' || pr === 'UF' || pr === 'TRUE'
+      || pr === 'starter' || pr === 'growth' || pr === 'pro';
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -54,7 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw) as HubspotContact);
+      if (raw) {
+        const cached = JSON.parse(raw) as HubspotContact;
+        // If cached session is missing state, clear it so user re-authenticates
+        const state = String(cached?.properties?.state ?? '').trim();
+        if (!state) {
+          window.localStorage.removeItem(STORAGE_KEY);
+        } else {
+          setUser(cached);
+        }
+      }
     } finally {
       setIsLoading(false);
     }

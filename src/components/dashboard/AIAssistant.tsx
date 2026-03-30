@@ -18,7 +18,8 @@ const AIAssistant = () => {
         {actions.map((action, index) => (
           <div
             key={index}
-            className="w-full text-left px-4 py-2.5 bg-[#F4F8FF] rounded-md border border-[#D5E2F7] text-[#1450B6] text-base font-bold leading-tight"
+            className="w-full text-left px-4 py-2.5 bg-[#F4F8FF] rounded-md border border-[#D5E2F7] text-[#1450B6] text-base font-bold leading-tight animate-fade-up"
+            style={{ animationDelay: `${index * 60}ms` }}
           >
             {action}
           </div>

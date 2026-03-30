@@ -13,20 +13,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
 
   const isLoginRoute = pathname === '/login';
+  const isAdminRoute = pathname?.startsWith('/admin') ?? false;
+  const isPublicRoute = pathname?.startsWith('/f/') ?? false;
   const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
 
   useEffect(() => {
     if (isLoading) return;
+    if (isAdminRoute || isPublicRoute) return;
     if (!isLoginRoute && !user) router.replace('/login');
     if (isLoginRoute && user) router.replace('/');
-  }, [isLoading, isLoginRoute, router, user]);
+  }, [isLoading, isLoginRoute, isAdminRoute, isPublicRoute, router, user]);
 
-  if (!isLoginRoute && !user) return null;
+  if (!isAdminRoute && !isPublicRoute && !isLoginRoute && !user) return null;
+
+  if (isPublicRoute) {
+    return <main className="flex-1 min-h-screen">{children}</main>;
+  }
+
+  if (isAdminRoute) {
+    return <main className="flex-1 min-h-screen bg-slate-100">{children}</main>;
+  }
 
   if (isLoginRoute) {
     return (
-      <main className="flex-1 p-6 md:p-10">
-        <div className="max-w-[420px] mx-auto">{children}</div>
+      <main className="flex-1 min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-[420px]">{children}</div>
       </main>
     );
   }
@@ -56,7 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar mode="mobile" isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
       <Sidebar mode="desktop" />
 
-      <main className="flex-1 md:ml-72 px-4 sm:px-6 lg:px-10 py-6 md:py-8 transition-all duration-300 pt-20 md:pt-8">
+      <main className="flex-1 md:ml-72 px-4 sm:px-6 lg:px-10 pt-20 pb-8 md:pt-8 md:py-8 transition-all duration-300">
         <div className="max-w-[1600px] mx-auto">{children}</div>
       </main>
     </>

@@ -137,7 +137,7 @@ export async function GET() {
       try {
         const snap = await ref.get();
         const existing = (snap.data() as CacheDoc | undefined) ?? null;
-        if (existing?.grants?.length && existing.grants.length >= 10) {
+        if (existing?.grants?.length && existing.grants.length > 0) {
           return NextResponse.json({ grants: existing.grants, cachedAt: existing.cachedAt, monthKey: mk });
         }
       } catch {

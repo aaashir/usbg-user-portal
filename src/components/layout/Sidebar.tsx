@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import packageJson from '../../../package.json';
+
+import React, { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   FileCheck,
@@ -16,6 +18,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 
 type SidebarProps = {
   mode?: 'desktop' | 'mobile';
@@ -37,20 +41,37 @@ const Sidebar = ({ mode = 'desktop', isOpen = false, onClose }: SidebarProps) =>
   const pathname = usePathname();
   const router = useRouter();
   const { logout, user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const email = String(user?.properties?.email ?? '').trim();
+
+  useEffect(() => {
+    if (!email) return;
+    (async () => {
+      try {
+        const q = query(
+          collection(db, 'check_status_app', email, 'messages'),
+          where('read', '==', false)
+        );
+        const snap = await getCountFromServer(q);
+        setUnreadCount(snap.data().count);
+      } catch { /* ignore */ }
+    })();
+  }, [email, pathname]); // re-check when route changes (user may have read messages)
 
   const activePath = pathname || '/';
 
   const primaryItems = [
     { name: 'Dashboard', icon: LayoutDashboard, href: '/' },
-    { name: 'My Grants', icon: FileCheck, href: '/grants' },
-    { name: 'Messages', icon: MessageSquare, href: '/messages' },
+    { name: 'My Grants', icon: FileCheck, href: '/grants?view=saved' },
+    { name: 'Messages', icon: MessageSquare, href: '/messages', badge: unreadCount },
     { name: 'AI Writing Assistant', icon: Sparkles, href: '/ai-assistant' },
     { name: 'Documents', icon: FolderOpen, href: '/documents' },
   ];
 
   const secondaryItems = [
     { name: 'Account', icon: UserRound, href: '/account' },
-    { name: 'Get Help', icon: LifeBuoy, href: '/help' },
+    { name: 'Get Help', icon: LifeBuoy, href: 'https://usbusinessgrants.org/faq.html' },
   ];
 
   const content = (
@@ -78,11 +99,17 @@ const Sidebar = ({ mode = 'desktop', isOpen = false, onClose }: SidebarProps) =>
 
       <nav className="flex-1 px-0 py-2 space-y-1 overflow-y-auto">
         {primaryItems.map((item) => {
-          const isActive = activePath === item.href;
+          const hrefPath = item.href.split('?')[0];
+          const isActive = activePath === hrefPath;
+          const isExternal = item.href.startsWith('http');
+          const ItemLink = isExternal ? 'a' : Link;
+          const badge = 'badge' in item ? (item.badge as number) : 0;
           return (
-            <Link
+            <ItemLink
               key={item.name}
-              href={item.href}
+              {...(isExternal
+                ? { href: item.href, target: '_blank', rel: 'noreferrer' }
+                : { href: item.href })}
               onClick={mode === 'mobile' ? onClose : undefined}
               className={`flex items-center gap-3 px-6 py-3 min-h-[52px] text-base font-semibold transition-all duration-200
                 ${
@@ -92,19 +119,29 @@ const Sidebar = ({ mode = 'desktop', isOpen = false, onClose }: SidebarProps) =>
                 }`}
             >
               <item.icon size={18} className={isActive ? 'text-white' : 'text-[#D2E4FF]'} />
-              <span className="max-w-[170px] leading-tight">{item.name}</span>
-            </Link>
+              <span className="max-w-[170px] leading-tight flex-1">{item.name}</span>
+              {badge > 0 && (
+                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center leading-none">
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
+            </ItemLink>
           );
         })}
 
         <div className="my-2 h-px bg-white/15 mx-6"></div>
 
         {secondaryItems.map((item) => {
-          const isActive = activePath === item.href;
+          const hrefPath = item.href.startsWith('http') ? '' : item.href.split('?')[0];
+          const isActive = hrefPath ? activePath === hrefPath : false;
+          const isExternal = item.href.startsWith('http');
+          const ItemLink = isExternal ? 'a' : Link;
           return (
-            <Link
+            <ItemLink
               key={item.name}
-              href={item.href}
+              {...(isExternal
+                ? { href: item.href, target: '_blank', rel: 'noreferrer' }
+                : { href: item.href })}
               onClick={mode === 'mobile' ? onClose : undefined}
               className={`flex items-center gap-3 px-6 py-3 min-h-[48px] text-sm font-semibold transition-all duration-200
                 ${
@@ -115,7 +152,7 @@ const Sidebar = ({ mode = 'desktop', isOpen = false, onClose }: SidebarProps) =>
             >
               <item.icon size={16} className={isActive ? 'text-white' : 'text-[#D2E4FF]'} />
               <span className="max-w-[170px] leading-tight">{item.name}</span>
-            </Link>
+            </ItemLink>
           );
         })}
 
@@ -138,11 +175,8 @@ const Sidebar = ({ mode = 'desktop', isOpen = false, onClose }: SidebarProps) =>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#102C5C]/30"></div>
       </div>
 
-      <div className="absolute bottom-4 left-4 w-9 h-9 rounded-full bg-white/10 backdrop-blur-sm border border-white/30 shadow-lg ring-1 ring-black/10 flex items-center justify-center text-white text-sm font-semibold">
-        {String(user?.properties?.['company'] ?? user?.properties?.['email'] ?? 'N')
-          .trim()
-          .slice(0, 1)
-          .toUpperCase()}
+      <div className="absolute bottom-4 left-4">
+        <span className="text-[11px] text-white/40 font-medium">v{packageJson.version}</span>
       </div>
     </>
   );

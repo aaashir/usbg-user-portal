@@ -25,6 +25,16 @@ export function halfMonthKey(d = new Date()) {
   return `${y}-${m}-${half}`;
 }
 
+export function twoMonthKey(d = new Date()) {
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const start = Math.floor((m - 1) / 2) * 2 + 1;
+  const end = start + 1;
+  const m1 = String(start).padStart(2, '0');
+  const m2 = String(end).padStart(2, '0');
+  return `${y}-${m1}-${m2}`;
+}
+
 export function normalizeState(state: string) {
   const raw = state.trim().replace(/\s+/g, ' ');
   if (!raw) return '';

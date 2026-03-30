@@ -223,7 +223,7 @@ export async function GET(req: Request) {
       try {
         const snap = await ref.get();
         const existing = (snap.data() as CacheDoc | undefined) ?? null;
-        if (existing?.grants?.length && existing.grants.length >= 20) {
+        if (existing?.grants?.length && existing.grants.length > 0) {
           return NextResponse.json({ grants: existing.grants, cachedAt: existing.cachedAt, state: st, monthKey: mk });
         }
       } catch {
@@ -236,7 +236,7 @@ export async function GET(req: Request) {
           try {
             const snap = await generalRef.get();
             const existing = snap.data() as CacheDoc | undefined;
-            if (existing?.grants?.length && existing.grants.length >= 10) return existing.grants;
+            if (existing?.grants?.length && existing.grants.length > 0) return existing.grants;
           } catch {
             // ignore
           }

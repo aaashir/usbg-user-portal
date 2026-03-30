@@ -10,14 +10,14 @@ export default function HelpPage() {
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 max-w-[640px]">
         <p className="text-sm text-slate-700">
-          For announcements and updates, visit{' '}
+          Visit our{' '}
           <a
-            href="https://usbusinessgrants.org/announcements.html"
+            href="https://usbusinessgrants.org/faq.html"
             target="_blank"
             rel="noreferrer"
             className="font-semibold underline text-blue-700"
           >
-            Grant Announcements
+            FAQ
           </a>
           .
         </p>
@@ -25,4 +25,3 @@ export default function HelpPage() {
     </div>
   );
 }
-

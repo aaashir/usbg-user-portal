@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { db } from '@/lib/firebase';
 import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
@@ -29,14 +28,11 @@ export default function GrantsPage() {
   const email = useMemo(() => String(user?.properties?.email ?? '').trim(), [user]);
   const state = useMemo(() => String(user?.properties?.state ?? '').trim(), [user]);
 
-  const searchParams = useSearchParams();
-  const defaultView = searchParams.get('view') === 'saved' ? 'saved' : 'all';
-
   const [isLoading, setIsLoading] = useState(true);
   const [bookmarksLoading, setBookmarksLoading] = useState(true);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [bookmarked, setBookmarked] = useState<Record<string, boolean>>({});
-  const [view, setView] = useState<'all' | 'saved'>(defaultView);
+  const [view, setView] = useState<'all' | 'saved'>('all');
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const anyLoading = isLoading || bookmarksLoading;
@@ -250,16 +246,14 @@ export default function GrantsPage() {
                   <><Spinner size={14} /> Saving…</>
                 ) : bookmarked[g.id] ? '✓ SAVED TO AUTO-APPLY' : 'SAVE TO AUTO-APPLY'}
               </button>
-              {g.url ? (
-                <a
-                  href={g.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center px-4 py-2.5 rounded-md text-sm font-bold bg-[#0F4DBA] text-white"
-                >
-                  APPLY DIRECTLY
-                </a>
-              ) : null}
+              <a
+                href={`https://www.google.com/search?q=${encodeURIComponent(g.name + ' grant application')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-md text-sm font-bold bg-[#0F4DBA] text-white"
+              >
+                APPLY DIRECTLY
+              </a>
             </div>
           </div>
         ))}

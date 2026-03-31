@@ -113,11 +113,6 @@ export default function AccountPage() {
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Plan</div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-slate-900">{membershipLabel(pr)}</span>
-              {pr && (
-                <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                  {pr}
-                </span>
-              )}
             </div>
           </div>
           <div>

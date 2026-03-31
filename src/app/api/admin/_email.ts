@@ -40,29 +40,34 @@ export const FROM_ADDRESS =
 const PORTAL_URL =
   process.env.NEXT_PUBLIC_APP_URL || 'https://portal.usbusinessgrants.org';
 
+const LOGO_URL = 'https://usbusinessgrants.org/assets/flag-logo4.png';
+
 /** Base HTML wrapper for all outgoing emails */
-function baseTemplate(bodyHtml: string) {
+function baseTemplate(bodyHtml: string, unsubscribeUrl?: string) {
+  const footerExtra = unsubscribeUrl
+    ? `<br><a href="${unsubscribeUrl}" style="color:#94a3b8;font-size:11px">Unsubscribe</a>`
+    : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:Arial,Helvetica,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 0">
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0">
   <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;max-width:600px;width:100%">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #dde3ec;max-width:600px;width:100%;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
       <!-- Header -->
       <tr>
-        <td style="background:#0F4DBA;padding:20px 32px">
-          <span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:-0.3px">US Business Grants</span>
+        <td style="background:#1d2d3e;padding:20px 32px">
+          <img src="${LOGO_URL}" alt="US Business Grants" height="36" style="display:block;height:36px;width:auto" />
         </td>
       </tr>
       <!-- Body -->
-      <tr><td style="padding:32px">${bodyHtml}</td></tr>
+      <tr><td style="padding:36px 32px">${bodyHtml}</td></tr>
       <!-- Footer -->
       <tr>
-        <td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0">
-          <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.5">
+        <td style="background:#f4f6f8;padding:16px 32px;border-top:1px solid #dde3ec">
+          <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.8">
             You received this email because you applied for a grant through US Business Grants.<br>
-            If you have questions, log in to your <a href="${PORTAL_URL}" style="color:#0F4DBA">secure portal</a>.
+            Questions? Log in to your <a href="${PORTAL_URL}" style="color:#0E468F;text-decoration:none">secure portal</a>.${footerExtra}
           </p>
         </td>
       </tr>
@@ -76,8 +81,46 @@ function baseTemplate(bodyHtml: string) {
 /** CTA button snippet */
 function ctaButton(label: string, url: string) {
   return `<p style="margin:24px 0">
-    <a href="${url}" style="background:#0F4DBA;color:#ffffff;padding:12px 28px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:bold;display:inline-block">${label}</a>
+    <a href="${url}" style="background:#0E468F;color:#ffffff;padding:13px 28px;border-radius:7px;text-decoration:none;font-size:14px;font-weight:bold;display:inline-block">${label}</a>
   </p>`;
+}
+
+// ─── Unsubscribe helpers ─────────────────────────────────────────────────────
+
+import crypto from 'crypto';
+
+/** Get or create a stable unsubscribe token for an email address */
+async function getUnsubToken(email: string): Promise<string> {
+  try {
+    const db = await getAdminFirebase();
+    if (db) {
+      const ref  = db.collection('crm_contacts').doc(email);
+      const snap = await ref.get();
+      const data = snap.data() as Record<string, unknown> | undefined;
+      if (data?.unsubToken && typeof data.unsubToken === 'string') return data.unsubToken;
+      const token = crypto.randomBytes(20).toString('hex');
+      await ref.set({ unsubToken: token }, { merge: true });
+      return token;
+    }
+  } catch { /* ignore */ }
+  // Fallback — deterministic but not stored (won't work for unsubscribe page lookup)
+  return crypto.createHash('sha256').update(email + (process.env.FIREBASE_ADMIN_PROJECT_ID ?? '')).digest('hex');
+}
+
+function unsubUrl(token: string) {
+  return `${PORTAL_URL}/unsubscribe?token=${token}`;
+}
+
+/** Returns true if this contact has unsubscribed */
+export async function isUnsubscribed(email: string): Promise<boolean> {
+  try {
+    const db = await getAdminFirebase();
+    if (db) {
+      const snap = await db.collection('crm_contacts').doc(email).get();
+      return (snap.data() as Record<string, unknown> | undefined)?.unsubscribed === true;
+    }
+  } catch { /* ignore */ }
+  return false;
 }
 
 // ─── Email senders ──────────────────────────────────────────────────────────
@@ -317,7 +360,14 @@ export async function sendCrmEmail(opts: {
   rawHtml?: boolean;    // body is a complete email HTML — skip baseTemplate entirely
   vars?: Record<string, string>;
   fromAccountId?: string;
+  skipUnsubCheck?: boolean;
 }): Promise<void> {
+  // Check unsubscribe (unless explicitly skipped)
+  if (!opts.skipUnsubCheck && await isUnsubscribed(opts.to)) {
+    console.log(`[sendCrmEmail] Skipping — ${opts.to} has unsubscribed`);
+    return;
+  }
+
   const result = await createAppsTransport(opts.fromAccountId);
   if (!result) return;
   const { transport, from } = result;
@@ -326,14 +376,19 @@ export async function sendCrmEmail(opts: {
   const subject      = substituteTplVars(opts.subject, vars);
   const bodyResolved = substituteTplVars(opts.body, vars);
 
+  // Generate unsubscribe URL
+  const token  = await getUnsubToken(opts.to);
+  const unsub  = unsubUrl(token);
+
   let html: string;
   if (opts.rawHtml) {
     html = bodyResolved;
   } else if (opts.isHtml) {
-    html = baseTemplate(bodyResolved);
+    html = baseTemplate(bodyResolved, unsub);
   } else {
     html = baseTemplate(
-      `<div style="font-size:14px;color:#475569;line-height:1.7">${bodyResolved.replace(/\n/g, '<br>')}</div>`
+      `<div style="font-size:14px;color:#475569;line-height:1.7">${bodyResolved.replace(/\n/g, '<br>')}</div>`,
+      unsub,
     );
   }
 

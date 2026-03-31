@@ -457,17 +457,31 @@ export default function AdminContactDetailPage() {
             <button
               onClick={() => void syncToBrevo()}
               disabled={brevoSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white text-[12px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              style={{ borderColor: '#0B996E', color: '#0B996E' }}
             >
-              <RefreshCw size={11} className={brevoSyncing ? 'animate-spin' : ''} />
+              {brevoSyncing ? (
+                <RefreshCw size={11} className="animate-spin" style={{ color: '#0B996E' }} />
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <path fill="#0B996E" d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 7.4c1.04 0 1.87.85 1.87 1.88 0 1.04-.83 1.88-1.87 1.88-1.03 0-1.87-.84-1.87-1.88 0-1.03.84-1.87 1.87-1.87zM9.3 8.67c.96 0 1.8.56 2.21 1.38l1.78 3.43c.37.72 1.1 1.18 1.9 1.18h.37l.87 1.67H15.2c-1.36 0-2.6-.76-3.24-1.97l-.47-.9-1.12 2.87H8.5l2.07-5.01-.42-.8c-.21-.4-.62-.65-1.07-.65H7.5L6.63 8.67H9.3z"/>
+                </svg>
+              )}
               {brevoSyncing ? 'Syncing…' : 'Sync to Brevo'}
             </button>
             <button
               onClick={() => void syncFromHubSpot()}
               disabled={hsSyncing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[12px] font-semibold text-slate-600 hover:border-orange-300 hover:text-orange-600 hover:bg-orange-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white text-[12px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              style={{ borderColor: '#FF7A59', color: '#FF7A59' }}
             >
-              <RefreshCw size={11} className={hsSyncing ? 'animate-spin' : ''} />
+              {hsSyncing ? (
+                <RefreshCw size={11} className="animate-spin" style={{ color: '#FF7A59' }} />
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 56 56" fill="none">
+                  <path d="M34.4 14.7V9.5a4.3 4.3 0 0 0 2.5-3.9V5.5A4.3 4.3 0 0 0 32.6 1.2h-.1A4.3 4.3 0 0 0 28.2 5.5v.1a4.3 4.3 0 0 0 2.5 3.9v5.2c-2.9.4-5.5 1.7-7.6 3.5L9.7 8.6a4.8 4.8 0 1 0-2 3.2l13 9.3A15.2 15.2 0 0 0 18 28.5c0 3.3 1.1 6.4 2.9 8.9l-3.9 3.9a3.8 3.8 0 1 0 2.7 2.6l4.1-4.1a15.3 15.3 0 0 0 23.5-12.9c0-6.5-4-12.1-9.9-14.2zm-1.9 23.4a8.8 8.8 0 1 1 0-17.6 8.8 8.8 0 0 1 0 17.6z" fill="#FF7A59"/>
+                </svg>
+              )}
               {hsSyncing ? 'Syncing…' : 'Sync from HubSpot'}
             </button>
           </div>

@@ -86,30 +86,44 @@ function ctaButton(label: string, url: string) {
 export async function sendNewMessageEmail(opts: {
   to: string;
   name: string;
+  body?: string;
 }): Promise<void> {
   const transport = createTransport();
-  if (!transport) return; // SMTP not configured — silently skip
+  if (!transport) {
+    console.error('[sendNewMessageEmail] SMTP transport not configured — SMTP_PASS missing?');
+    return;
+  }
+
+  const messageHtml = opts.body
+    ? `<div style="background:#f8fafc;border-left:4px solid #0F4DBA;border-radius:4px;padding:16px 20px;margin:16px 0">
+        <p style="margin:0;font-size:14px;color:#1e293b;line-height:1.7;white-space:pre-wrap">${escHtml(opts.body)}</p>
+       </div>`
+    : '';
 
   const html = baseTemplate(`
     <p style="font-size:15px;color:#1e293b;margin:0 0 12px">Hello ${escHtml(opts.name)},</p>
     <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 8px">
-      You have received a <strong>new secure message</strong> regarding your grant application from US Business Grants.
+      You have received a <strong>new message</strong> regarding your grant application from US Business Grants.
     </p>
-    <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 8px">
-      For your security, message contents are only viewable through your private portal. Please log in to read your message.
-    </p>
-    ${ctaButton('Read Your Message', PORTAL_URL)}
+    ${messageHtml}
+    ${ctaButton('Log In to Reply', PORTAL_URL)}
     <p style="font-size:13px;color:#94a3b8;margin:16px 0 0">
       If you have trouble logging in, please reply to this email for assistance.
     </p>
   `);
 
-  await transport.sendMail({
-    from: FROM_ADDRESS,
-    to: opts.to,
-    subject: 'New Secure Message — US Business Grants',
-    html,
-  });
+  try {
+    await transport.sendMail({
+      from: FROM_ADDRESS,
+      to: opts.to,
+      subject: 'New Message — US Business Grants',
+      html,
+    });
+    console.log(`[sendNewMessageEmail] Sent to ${opts.to}`);
+  } catch (err) {
+    console.error(`[sendNewMessageEmail] Failed to send to ${opts.to}:`, err);
+    throw err;
+  }
 }
 
 /** The progress step labels (must match STEP_LABELS in the admin UI) */

@@ -35,8 +35,8 @@ export async function POST(req: Request) {
       read: false,
     });
 
-  // Send SMTP email notification (non-fatal — portal still works without it)
-  await sendNewMessageEmail({ to: email, name }).catch(err => {
+  // Send SMTP email notification with message body (non-fatal)
+  await sendNewMessageEmail({ to: email, name, body: messageBody }).catch(err => {
     console.error('[send-message] email failed:', err);
   });
 

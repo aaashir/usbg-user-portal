@@ -32,6 +32,7 @@ type Checkpoint = {
 
 type SmtpAccount = {
   id: string;
+  label: string;
   fromName: string;
   user: string;
   pass: string;
@@ -82,7 +83,7 @@ function SmtpSettingsCard() {
   function addAccount() {
     const newId = generateId();
     const newAccount: SmtpAccount = {
-      id: newId, fromName: '', user: '', pass: '',
+      id: newId, label: '', fromName: '', user: '', pass: '',
       host: 'mail.usbusinessgrants.org', port: 465, isDefault: accounts.length === 0,
     };
     setAccounts(prev => [...prev, newAccount]);
@@ -154,7 +155,7 @@ function SmtpSettingsCard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[13px] font-semibold text-slate-700 truncate">
-                    {account.fromName || account.user || 'Untitled account'}
+                    {account.label || account.fromName || account.user || 'Untitled account'}
                   </div>
                   <div className="text-[11px] text-slate-400 truncate">{account.user || 'No email set'}</div>
                 </div>
@@ -172,6 +173,12 @@ function SmtpSettingsCard() {
               {/* Expanded edit form */}
               {expanded === account.id && (
                 <div className="px-6 pb-5 pt-1 space-y-4 bg-slate-50/50">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Account Label <span className="text-slate-400 font-normal normal-case">(for your reference)</span></label>
+                    <input type="text" value={account.label ?? ''} onChange={e => updateAccount(account.id, 'label', e.target.value)}
+                      placeholder="e.g. Notifications, CRM Outbound, Support…"
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-400 bg-white transition-colors" />
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">From Name</label>
@@ -274,7 +281,7 @@ function SmtpSettingsCard() {
               <option value="">Use default account</option>
               {accounts.map(a => (
                 <option key={a.id} value={a.id}>
-                  {a.fromName || a.user} {a.isDefault ? '(default)' : ''}
+                  {a.label ? `${a.label} — ` : ''}{a.fromName || a.user}{a.isDefault ? ' (default)' : ''}
                 </option>
               ))}
             </select>

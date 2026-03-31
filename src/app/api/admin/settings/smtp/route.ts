@@ -7,6 +7,7 @@ const DOC = 'settings/crm_email';
 
 type SmtpAccount = {
   id: string;
+  label?: string;
   fromName: string;
   user: string;
   pass: string;

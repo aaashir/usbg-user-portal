@@ -19,8 +19,10 @@ export async function POST(req: Request) {
     subject?: string;
     body?: string;
     isHtml?: boolean;
-    filter?: 'all' | 'SF' | 'EF' | 'UF' | 'custom';
+    filter?: 'all' | 'SF' | 'EF' | 'UF' | 'custom' | 'list';
     emails?: string[];
+    listId?: string;
+    fromAccountId?: string;
   };
 
   if (!payload.subject?.trim()) return NextResponse.json({ message: 'Subject is required.' }, { status: 400 });
@@ -29,7 +31,12 @@ export async function POST(req: Request) {
   // ── Build recipient list ────────────────────────────────────────────────
   let recipientEmails: string[] = [];
 
-  if (payload.filter === 'custom' && payload.emails?.length) {
+  if (payload.filter === 'list' && payload.listId) {
+    const listSnap = await db.collection('crm_lists').doc(payload.listId).get();
+    if (!listSnap.exists) return NextResponse.json({ message: 'List not found.' }, { status: 404 });
+    const listData = listSnap.data() as { contactEmails?: string[] };
+    recipientEmails = (listData.contactEmails ?? []).filter(e => e.includes('@'));
+  } else if (payload.filter === 'custom' && payload.emails?.length) {
     recipientEmails = payload.emails
       .map(e => e.trim().toLowerCase())
       .filter(e => e.includes('@'));
@@ -67,11 +74,12 @@ export async function POST(req: Request) {
       const vars: Record<string, string> = { name, firstName, lastName, businessName, email };
 
       await sendCrmEmail({
-        to:      email,
-        subject: payload.subject!,
-        body:    payload.body!,
-        isHtml:  payload.isHtml,
+        to:            email,
+        subject:       payload.subject!,
+        body:          payload.body!,
+        isHtml:        payload.isHtml,
         vars,
+        fromAccountId: payload.fromAccountId,
       });
 
       // Log to contact's email history (non-fatal)

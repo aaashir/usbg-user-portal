@@ -21,6 +21,7 @@ const NAV: NavEntry[] = [
     icon: Database,
     children: [
       { label: 'Contacts', href: '/admin/contacts' },
+      { label: 'Lists',    href: '/admin/contacts/lists' },
     ],
   },
   {
@@ -52,6 +53,7 @@ const NAV: NavEntry[] = [
 // Flat list for pinned flyout
 const ALL_FLAT_NAV: { label: string; href: string }[] = [
   { label: 'Contacts',   href: '/admin/contacts'                },
+  { label: 'Lists',      href: '/admin/contacts/lists'          },
   { label: 'Forms',      href: '/admin/forms'                   },
   { label: 'Emails',     href: '/admin/marketing/emails'        },
   { label: 'Bulk Email', href: '/admin/automations/bulk-email'  },

@@ -7,14 +7,15 @@ import VariableTextarea from '@/components/ui/VariableTextarea';
 
 type Template = { id: string; name: string; subject: string; body: string; isHtml: boolean };
 
-type Filter = 'all' | 'SF' | 'EF' | 'UF' | 'custom';
+type Filter = 'all' | 'SF' | 'EF' | 'UF' | 'custom' | 'list';
 
 const FILTER_OPTIONS: { value: Filter; label: string; desc: string; color: string }[] = [
-  { value: 'all', label: 'All Contacts',    desc: 'Every contact in your CRM',    color: 'bg-slate-100 text-slate-700 border-slate-300' },
-  { value: 'SF',  label: 'Starter',         desc: 'Contacts with Starter plan',   color: 'bg-blue-50   text-blue-700  border-blue-300'  },
-  { value: 'EF',  label: 'Growth',          desc: 'Contacts with Growth plan',    color: 'bg-amber-50  text-amber-700 border-amber-300' },
-  { value: 'UF',  label: 'Unlimited',       desc: 'Contacts with Unlimited plan', color: 'bg-purple-50 text-purple-700 border-purple-300' },
-  { value: 'custom', label: 'Custom List',  desc: 'Paste specific email addresses', color: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
+  { value: 'all',    label: 'All Contacts',   desc: 'Every contact in your CRM',      color: 'bg-slate-100 text-slate-700 border-slate-300'   },
+  { value: 'SF',     label: 'Starter',        desc: 'Contacts with Starter plan',     color: 'bg-blue-50   text-blue-700  border-blue-300'    },
+  { value: 'EF',     label: 'Growth',         desc: 'Contacts with Growth plan',      color: 'bg-amber-50  text-amber-700 border-amber-300'   },
+  { value: 'UF',     label: 'Unlimited',      desc: 'Contacts with Unlimited plan',   color: 'bg-purple-50 text-purple-700 border-purple-300' },
+  { value: 'list',   label: 'Contact List',   desc: 'Send to a saved contact list',   color: 'bg-teal-50   text-teal-700  border-teal-300'    },
+  { value: 'custom', label: 'Custom Emails',  desc: 'Paste specific email addresses', color: 'bg-emerald-50 text-emerald-700 border-emerald-300' },
 ];
 
 function token() {
@@ -90,8 +91,13 @@ export default function BulkEmailPage() {
   const [body,      setBody]      = useState('');
   const [isHtml,    setIsHtml]    = useState(false);
 
-  const [filter,       setFilter]       = useState<Filter>('all');
-  const [customEmails, setCustomEmails] = useState('');
+  const [filter,         setFilter]         = useState<Filter>('all');
+  const [customEmails,   setCustomEmails]   = useState('');
+  const [crmLists,       setCrmLists]       = useState<{ id: string; name: string; count: number }[]>([]);
+  const [crmListsLoaded, setCrmListsLoaded] = useState(false);
+  const [selectedListId, setSelectedListId] = useState('');
+  const [smtpAccounts,   setSmtpAccounts]   = useState<{ id: string; label?: string; fromName: string; user: string; isDefault: boolean }[]>([]);
+  const [fromAccountId,  setFromAccountId]  = useState('');
 
   const [recipientCount,        setRecipientCount]        = useState<number | null>(null);
   const [recipientCountLoading, setRecipientCountLoading] = useState(false);
@@ -127,9 +133,27 @@ export default function BulkEmailPage() {
       .finally(() => setTemplatesLoading(false));
   }, []);
 
-  // Fetch recipient count when filter changes (not for custom)
+  // Load SMTP accounts + CRM lists on mount
+  useEffect(() => {
+    fetch('/api/admin/settings/smtp', { headers: { Authorization: `Bearer ${token()}` } })
+      .then(r => r.ok ? r.json() as Promise<{ accounts?: { id: string; label?: string; fromName: string; user: string; isDefault: boolean }[] }> : { accounts: [] })
+      .then(d => {
+        const accts = d.accounts ?? [];
+        setSmtpAccounts(accts);
+        const def = accts.find(a => a.isDefault) ?? accts[0];
+        if (def) setFromAccountId(def.id);
+      })
+      .catch(() => {});
+
+    fetch('/api/admin/lists', { headers: { Authorization: `Bearer ${token()}` } })
+      .then(r => r.ok ? r.json() as Promise<{ id: string; name: string; count: number }[]> : [])
+      .then(l => { setCrmLists(l); setCrmListsLoaded(true); })
+      .catch(() => setCrmListsLoaded(true));
+  }, []);
+
+  // Fetch recipient count when filter changes (not for custom/list)
   const fetchCount = useCallback(async (f: Filter) => {
-    if (f === 'custom') { setRecipientCount(null); return; }
+    if (f === 'custom' || f === 'list') { setRecipientCount(null); return; }
     setRecipientCountLoading(true);
     try {
       const res = await fetch(`/api/admin/bulk-email?filter=${f}`, { headers: { Authorization: `Bearer ${token()}` } });
@@ -155,7 +179,12 @@ export default function BulkEmailPage() {
     return customEmails.split(/[\n,;]+/).map(e => e.trim()).filter(e => e.includes('@')).length;
   }
 
-  const displayCount = filter === 'custom' ? customEmailCount() : (recipientCount ?? 0);
+  const selectedList = crmLists.find(l => l.id === selectedListId);
+  const displayCount = filter === 'custom'
+    ? customEmailCount()
+    : filter === 'list'
+      ? (selectedList?.count ?? 0)
+      : (recipientCount ?? 0);
 
   async function handleSend() {
     if (!subject.trim() || !body.trim()) { setSendError('Subject and body are required.'); return; }
@@ -179,7 +208,9 @@ export default function BulkEmailPage() {
           body,
           isHtml,
           filter,
-          emails: filter === 'custom' ? customList : undefined,
+          emails:        filter === 'custom' ? customList : undefined,
+          listId:        filter === 'list'   ? selectedListId : undefined,
+          fromAccountId: fromAccountId || undefined,
         }),
       });
       const d = await res.json() as SendResult & { message?: string };
@@ -347,6 +378,29 @@ export default function BulkEmailPage() {
               ))}
             </div>
 
+            {/* List picker */}
+            {filter === 'list' && (
+              <div className="mt-3">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Select List</label>
+                {!crmListsLoaded ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner size={13} /> Loading lists…</div>
+                ) : crmLists.length === 0 ? (
+                  <p className="text-sm text-slate-400">No lists found. <a href="/admin/contacts/lists" className="text-blue-600 underline">Create one →</a></p>
+                ) : (
+                  <select
+                    value={selectedListId}
+                    onChange={e => setSelectedListId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-400 bg-white"
+                  >
+                    <option value="">— Choose a list —</option>
+                    {crmLists.map(l => (
+                      <option key={l.id} value={l.id}>{l.name} ({l.count} contacts)</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
             {/* Custom emails textarea */}
             {filter === 'custom' && (
               <div className="mt-3">
@@ -363,8 +417,32 @@ export default function BulkEmailPage() {
             )}
           </div>
 
+          {/* From account picker */}
+          {smtpAccounts.length > 1 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Send From</label>
+              <div className="flex flex-wrap gap-2">
+                {smtpAccounts.map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() => setFromAccountId(a.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-semibold transition-colors ${
+                      fromAccountId === a.id
+                        ? 'border-[#0E468F] bg-blue-50 text-[#0E468F]'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <Mail size={12} />
+                    {a.label ? `${a.label} — ` : ''}{a.fromName || a.user}
+                    {a.isDefault && <span className="text-[10px] text-slate-400">(default)</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Recipient count badge */}
-          {filter !== 'custom' && (
+          {filter !== 'custom' && filter !== 'list' && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
               <Users size={16} className="text-[#0F4DBA] flex-shrink-0" />
               <div>
@@ -374,6 +452,15 @@ export default function BulkEmailPage() {
                 ) : (
                   <div className="text-xl font-black text-[#1F315C]">{recipientCount ?? '—'} <span className="text-sm font-semibold text-slate-500">contacts</span></div>
                 )}
+              </div>
+            </div>
+          )}
+          {(filter === 'list' || filter === 'custom') && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
+              <Users size={16} className="text-[#0F4DBA] flex-shrink-0" />
+              <div>
+                <div className="text-xs font-bold text-blue-600 uppercase tracking-wide">Will reach</div>
+                <div className="text-xl font-black text-[#1F315C]">{displayCount} <span className="text-sm font-semibold text-slate-500">contacts</span></div>
               </div>
             </div>
           )}

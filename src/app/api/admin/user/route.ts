@@ -42,6 +42,7 @@ export async function GET(req: Request) {
     website:      String(contactData.website      ?? ''),
     pr:           String(contactData.pr           ?? ''),
     createdate:   String(contactData.createDate   ?? ''),
+    unsubscribed: contactData.unsubscribed === true ? 'true' : '',
     fundingUse:   (() => {
       const val = contactData.fundingUse ?? contactData.fundinguse ?? contactData.fundUses;
       if (Array.isArray(val)) return (val as unknown[]).map(String).join(', ');

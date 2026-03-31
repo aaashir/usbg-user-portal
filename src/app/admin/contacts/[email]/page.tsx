@@ -442,6 +442,12 @@ export default function AdminContactDetailPage() {
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h1 className="text-xl font-black text-[#1F315C] leading-tight">{name}</h1>
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${pr.color}`}>{pr.label}</span>
+            {props.unsubscribed === 'true' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Unsubscribed
+              </span>
+            )}
           </div>
           <div className="text-sm text-slate-500 font-medium">{props.email || email}</div>
           {props.company && props.company !== name && (

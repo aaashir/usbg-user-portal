@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { CreditCard, Zap, XCircle } from 'lucide-react';
+import { getAuth } from 'firebase/auth';
+import { CreditCard, Zap, XCircle, Bell, BellOff } from 'lucide-react';
 
 function prop(properties: Record<string, unknown> | undefined, key: string): string {
   return String(properties?.[key] ?? '').trim() || '—';
@@ -29,6 +30,40 @@ export default function AccountPage() {
   const pr    = useMemo(() => String(properties?.pr    ?? ''), [properties]);
 
   const [bpUsed, setBpUsed] = useState<number | null>(null);
+  const [emailPrefs,        setEmailPrefs]        = useState<{ unsubscribed: boolean; emailNotifications: boolean } | null>(null);
+  const [emailPrefsLoading, setEmailPrefsLoading] = useState(false);
+  const [emailPrefsSaving,  setEmailPrefsSaving]  = useState(false);
+  const [emailPrefsMsg,     setEmailPrefsMsg]      = useState('');
+
+  // Load email preferences
+  useEffect(() => {
+    if (!email) return;
+    setEmailPrefsLoading(true);
+    getAuth().currentUser?.getIdToken()
+      .then(tok => fetch('/api/preferences', { headers: { Authorization: `Bearer ${tok}` } }))
+      .then(r => r?.ok ? r.json() as Promise<{ unsubscribed: boolean; emailNotifications: boolean }> : null)
+      .then(d => { if (d) setEmailPrefs(d); })
+      .catch(() => {})
+      .finally(() => setEmailPrefsLoading(false));
+  }, [email]);
+
+  async function saveEmailPref(update: Partial<{ unsubscribed: boolean; emailNotifications: boolean }>) {
+    setEmailPrefsSaving(true); setEmailPrefsMsg('');
+    try {
+      const tok = await getAuth().currentUser?.getIdToken();
+      const res = await fetch('/api/preferences', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(update),
+      });
+      if (res.ok) {
+        setEmailPrefs(prev => prev ? { ...prev, ...update } : null);
+        setEmailPrefsMsg('Saved!');
+        setTimeout(() => setEmailPrefsMsg(''), 3000);
+      }
+    } catch { setEmailPrefsMsg('Failed to save.'); }
+    finally   { setEmailPrefsSaving(false); }
+  }
 
   useEffect(() => {
     if (!email) return;
@@ -116,6 +151,60 @@ export default function AccountPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── Email Preferences ── */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-3">
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Email Preferences</h2>
+
+        {emailPrefsLoading ? (
+          <div className="text-sm text-slate-400">Loading…</div>
+        ) : emailPrefs === null ? (
+          <div className="text-sm text-slate-400">Could not load preferences.</div>
+        ) : (
+          <>
+            {/* Portal notifications */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-start gap-3">
+                {emailPrefs.emailNotifications ? <Bell size={16} className="text-blue-500 mt-0.5 flex-shrink-0" /> : <BellOff size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />}
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Portal Notifications</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Email alerts when you receive a new message or status update.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => void saveEmailPref({ emailNotifications: !emailPrefs.emailNotifications })}
+                disabled={emailPrefsSaving}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${emailPrefs.emailNotifications ? 'bg-blue-600' : 'bg-slate-300'} disabled:opacity-60`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${emailPrefs.emailNotifications ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Marketing emails */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-start gap-3">
+                {!emailPrefs.unsubscribed ? <Bell size={16} className="text-blue-500 mt-0.5 flex-shrink-0" /> : <BellOff size={16} className="text-slate-400 mt-0.5 flex-shrink-0" />}
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Marketing Emails</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Grant opportunities, tips, and updates from US Business Grants.</p>
+                  {emailPrefs.unsubscribed && (
+                    <span className="mt-1 inline-block text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">Unsubscribed</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => void saveEmailPref({ unsubscribed: !emailPrefs.unsubscribed })}
+                disabled={emailPrefsSaving}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${!emailPrefs.unsubscribed ? 'bg-blue-600' : 'bg-slate-300'} disabled:opacity-60`}
+              >
+                <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${!emailPrefs.unsubscribed ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {emailPrefsMsg && <p className="text-xs font-semibold text-emerald-600">{emailPrefsMsg}</p>}
+          </>
+        )}
       </div>
 
       {/* ── Billing & Subscription ── */}

@@ -280,6 +280,10 @@ export default function AdminContactsPage() {
   const [selectedIds,      setSelectedIds]      = useState<Set<string>>(new Set());
   const [bulkLoading,      setBulkLoading]      = useState(false);
   const [tierMenuOpen,     setTierMenuOpen]     = useState(false);
+  const [listMenuOpen,     setListMenuOpen]     = useState(false);
+  const [lists,            setLists]            = useState<{ id: string; name: string }[]>([]);
+  const [listsLoaded,      setListsLoaded]      = useState(false);
+  const listMenuRef = useRef<HTMLDivElement>(null);
   const [colMenuOpen,      setColMenuOpen]      = useState(false);
   const [visibleCols,      setVisibleCols]      = useState<Set<ColKey>>(
     new Set(ALL_COLS.filter(c => c.defaultOn).map(c => c.key))
@@ -491,6 +495,32 @@ export default function AdminContactsPage() {
     setSelectedIds(new Set()); setBulkLoading(false);
   }
 
+  async function loadLists() {
+    if (listsLoaded) return;
+    const tok = typeof window !== 'undefined' ? (window.localStorage.getItem('usbg:adminToken') ?? '') : '';
+    try {
+      const res = await fetch('/api/admin/lists', { headers: { Authorization: `Bearer ${tok}` } });
+      if (res.ok) setLists((await res.json() as { id: string; name: string }[]));
+    } catch { /* ignore */ }
+    setListsLoaded(true);
+  }
+
+  async function addToList(listId: string, listName: string) {
+    setListMenuOpen(false);
+    setBulkLoading(true);
+    const emails = Array.from(selectedIds);
+    const tok = typeof window !== 'undefined' ? (window.localStorage.getItem('usbg:adminToken') ?? '') : '';
+    try {
+      await fetch(`/api/admin/lists/${listId}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addEmails: emails }),
+      });
+      success(`Added ${emails.length} contact${emails.length !== 1 ? 's' : ''} to "${listName}"`);
+    } catch { toastError('Failed to add to list'); }
+    finally { setBulkLoading(false); }
+  }
+
   async function bulkDelete() {
     if (!confirm(`Delete ${selectedIds.size} contact${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
     setBulkLoading(true);
@@ -667,6 +697,33 @@ export default function AdminContactsPage() {
               </div>
             )}
           </div>
+          {/* Add to List */}
+          <div ref={listMenuRef} className="relative">
+            <button
+              onClick={() => { setListMenuOpen(v => !v); void loadLists(); }}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-blue-300 text-blue-700 bg-white hover:bg-blue-50 transition-colors disabled:opacity-50"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add to List <TierChevron size={11} />
+            </button>
+            {listMenuOpen && (
+              <div className="absolute top-full mt-1 left-0 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50 min-w-[180px]">
+                {!listsLoaded ? (
+                  <div className="px-4 py-2 text-[12px] text-slate-400">Loading…</div>
+                ) : lists.length === 0 ? (
+                  <div className="px-4 py-2 text-[12px] text-slate-400">No lists yet. <Link href="/admin/contacts/lists" className="text-blue-600 underline">Create one →</Link></div>
+                ) : lists.map(l => (
+                  <button key={l.id} onClick={() => void addToList(l.id, l.name)}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 text-left">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0E468F" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    {l.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button onClick={() => void bulkDelete()} disabled={bulkLoading}
             className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border border-red-300 text-red-600 bg-white hover:bg-red-50 transition-colors disabled:opacity-50">
             <Trash2 size={12} /> Delete

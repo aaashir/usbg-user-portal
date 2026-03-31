@@ -39,9 +39,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ accounts: maskAccounts([envAccount]), source: 'env' });
   }
 
-  const data = snap.data() as { accounts?: SmtpAccount[]; updatedAt?: unknown };
+  const data = snap.data() as { accounts?: SmtpAccount[]; updatedAt?: unknown; notificationAccountId?: string };
   const accounts: SmtpAccount[] = Array.isArray(data.accounts) ? data.accounts : [];
-  return NextResponse.json({ accounts: maskAccounts(accounts), updatedAt: data.updatedAt ?? null, source: 'firestore' });
+  return NextResponse.json({ accounts: maskAccounts(accounts), notificationAccountId: data.notificationAccountId ?? null, updatedAt: data.updatedAt ?? null, source: 'firestore' });
 }
 
 export async function PUT(req: Request) {
@@ -49,7 +49,7 @@ export async function PUT(req: Request) {
   const db = await getAdminFirebase();
   if (!db) return NextResponse.json({ message: 'Firebase not configured' }, { status: 500 });
 
-  const body = await req.json() as { accounts?: SmtpAccount[] };
+  const body = await req.json() as { accounts?: SmtpAccount[]; notificationAccountId?: string | null };
   if (!Array.isArray(body.accounts)) return NextResponse.json({ message: 'accounts array required' }, { status: 400 });
 
   const ref = db.doc(DOC);
@@ -77,6 +77,8 @@ export async function PUT(req: Request) {
   const hasDefault = merged.some(a => a.isDefault);
   if (!hasDefault && merged.length > 0) merged[0].isDefault = true;
 
-  await ref.set({ accounts: merged, updatedAt: new Date() });
+  const updatePayload: Record<string, unknown> = { accounts: merged, updatedAt: new Date() };
+  if (body.notificationAccountId !== undefined) updatePayload.notificationAccountId = body.notificationAccountId;
+  await ref.set(updatePayload, { merge: true });
   return NextResponse.json({ ok: true });
 }

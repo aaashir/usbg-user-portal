@@ -88,7 +88,43 @@ export async function sendNewMessageEmail(opts: {
   name: string;
   body?: string;
 }): Promise<void> {
-  const transport = createTransport();
+  // Try to use the admin-configured notification account first
+  let transport: nodemailer.Transporter | null = null;
+  let fromAddress = FROM_ADDRESS;
+
+  try {
+    const db = await getAdminFirebase();
+    if (db) {
+      const snap = await db.doc('settings/crm_email').get();
+      if (snap.exists) {
+        const data = snap.data() as {
+          accounts?: Array<{ id: string; fromName: string; user: string; pass: string; host: string; port: number; isDefault: boolean }>;
+          notificationAccountId?: string;
+        };
+        const accounts = data.accounts ?? [];
+        const notifAcct = (data.notificationAccountId
+          ? accounts.find(a => a.id === data.notificationAccountId)
+          : null) ?? accounts.find(a => a.isDefault) ?? accounts[0];
+        if (notifAcct?.user && notifAcct?.pass) {
+          const port = notifAcct.port || 465;
+          transport = nodemailer.createTransport({
+            host: notifAcct.host || 'mail.usbusinessgrants.org',
+            port,
+            secure: port === 465,
+            auth: { user: notifAcct.user, pass: notifAcct.pass },
+            tls: { rejectUnauthorized: false },
+          });
+          fromAddress = `"${notifAcct.fromName || 'US Business Grants'}" <${notifAcct.user}>`;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[sendNewMessageEmail] Could not load Firestore SMTP config, falling back to env:', err);
+  }
+
+  // Fall back to env-based transport
+  if (!transport) transport = createTransport();
+
   if (!transport) {
     console.error('[sendNewMessageEmail] SMTP transport not configured — SMTP_PASS missing?');
     return;
@@ -114,12 +150,12 @@ export async function sendNewMessageEmail(opts: {
 
   try {
     await transport.sendMail({
-      from: FROM_ADDRESS,
+      from: fromAddress,
       to: opts.to,
       subject: 'New Message — US Business Grants',
       html,
     });
-    console.log(`[sendNewMessageEmail] Sent to ${opts.to}`);
+    console.log(`[sendNewMessageEmail] Sent to ${opts.to} from ${fromAddress}`);
   } catch (err) {
     console.error(`[sendNewMessageEmail] Failed to send to ${opts.to}:`, err);
     throw err;

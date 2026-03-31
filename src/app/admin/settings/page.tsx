@@ -43,15 +43,16 @@ type SmtpAccount = {
 function generateId() { return `acct_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`; }
 
 function SmtpSettingsCard() {
-  const [accounts,   setAccounts]   = useState<SmtpAccount[]>([]);
-  const [expanded,   setExpanded]   = useState<string | null>(null);
-  const [showPass,   setShowPass]   = useState<Record<string, boolean>>({});
-  const [loading,    setLoading]    = useState(true);
-  const [saving,     setSaving]     = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'ok' | 'error'>('idle');
-  const [saveError,  setSaveError]  = useState('');
-  const [testing,    setTesting]    = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [accounts,              setAccounts]              = useState<SmtpAccount[]>([]);
+  const [notificationAccountId, setNotificationAccountId] = useState<string>('');
+  const [expanded,              setExpanded]              = useState<string | null>(null);
+  const [showPass,              setShowPass]              = useState<Record<string, boolean>>({});
+  const [loading,               setLoading]               = useState(true);
+  const [saving,                setSaving]                = useState(false);
+  const [saveStatus,            setSaveStatus]            = useState<'idle' | 'ok' | 'error'>('idle');
+  const [saveError,             setSaveError]             = useState('');
+  const [testing,               setTesting]               = useState(false);
+  const [testResult,            setTestResult]            = useState<{ ok: boolean; msg: string } | null>(null);
   const tokenRef = useRef('');
 
   useEffect(() => {
@@ -60,8 +61,9 @@ function SmtpSettingsCard() {
       headers: { Authorization: `Bearer ${tokenRef.current}` },
     })
       .then(r => r.json())
-      .then((d: { accounts?: SmtpAccount[] }) => {
+      .then((d: { accounts?: SmtpAccount[]; notificationAccountId?: string }) => {
         setAccounts(d.accounts ?? []);
+        setNotificationAccountId(d.notificationAccountId ?? '');
         if ((d.accounts ?? []).length > 0) setExpanded(d.accounts![0].id);
       })
       .catch(() => null)
@@ -102,7 +104,7 @@ function SmtpSettingsCard() {
       const res = await fetch('/api/admin/settings/smtp', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenRef.current}` },
-        body: JSON.stringify({ accounts }),
+        body: JSON.stringify({ accounts, notificationAccountId }),
       });
       if (res.ok) { setSaveStatus('ok'); setTimeout(() => setSaveStatus('idle'), 3000); }
       else { const d = await res.json() as { message?: string }; setSaveError(d.message ?? 'Save failed'); setSaveStatus('error'); }
@@ -256,6 +258,28 @@ function SmtpSettingsCard() {
         )}
         {saveStatus === 'error' && (
           <div className="rounded-lg px-3 py-2 text-[12px] font-medium bg-red-50 text-red-700 border border-red-200">{saveError}</div>
+        )}
+
+        {/* Notification email picker */}
+        {accounts.length > 0 && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 space-y-1.5">
+            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              Portal Notification Emails (CRM messages, progress updates)
+            </label>
+            <select
+              value={notificationAccountId}
+              onChange={e => { setNotificationAccountId(e.target.value); setSaveStatus('idle'); }}
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white outline-none focus:border-blue-400 transition-colors"
+            >
+              <option value="">Use default account</option>
+              {accounts.map(a => (
+                <option key={a.id} value={a.id}>
+                  {a.fromName || a.user} {a.isDefault ? '(default)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-slate-400">Which email account sends &quot;you have a new message&quot; notifications to customers.</p>
+          </div>
         )}
 
         <div className="flex items-center gap-3">

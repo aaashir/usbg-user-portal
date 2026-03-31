@@ -12,8 +12,15 @@ export async function GET(req: Request) {
   const db = await getAdminFirebase();
   if (!db) return NextResponse.json({ message: 'Firebase not configured.' }, { status: 500 });
 
-  // Fetch CRM contact
-  const contactSnap = await db.collection('crm_contacts').doc(email).get();
+  // Fetch all data in parallel — no sequential awaits
+  const [contactSnap, docsSnap, overrideSnap, notesSnap, msgsSnap] = await Promise.all([
+    db.collection('crm_contacts').doc(email).get(),
+    db.collection('check_status_app').doc(email).collection('documents').get(),
+    db.collection('check_status_app').doc(email).collection('admin').doc('settings').get().catch(() => null),
+    db.collection('crm_contacts').doc(email).collection('notes').orderBy('createdAt', 'desc').get().catch(() => null),
+    db.collection('check_status_app').doc(email).collection('messages').orderBy('sentAt', 'desc').get().catch(() => null),
+  ]);
+
   const contactData = contactSnap.exists ? (contactSnap.data() as Record<string, unknown>) : {};
 
   // Normalise into a flat properties map (same shape the detail page expects)
@@ -42,9 +49,8 @@ export async function GET(req: Request) {
     })(),
   };
 
-  // Fetch uploaded documents
+  // Documents
   const docs: Record<string, { key: string; label?: string; filename?: string; url?: string }> = {};
-  const docsSnap = await db.collection('check_status_app').doc(email).collection('documents').get();
   docsSnap.forEach((d: { id: string; data(): Record<string, unknown> }) => {
     const data = d.data();
     docs[d.id] = {
@@ -55,42 +61,33 @@ export async function GET(req: Request) {
     };
   });
 
-  // Fetch admin progress override
-  let progressOverride: Record<string, unknown> | null = null;
-  try {
-    const overrideSnap = await db.collection('check_status_app').doc(email).collection('admin').doc('settings').get();
-    if (overrideSnap.exists) progressOverride = overrideSnap.data() as Record<string, unknown>;
-  } catch { /* ignore */ }
+  // Progress override
+  const progressOverride: Record<string, unknown> | null =
+    overrideSnap?.exists ? (overrideSnap.data() as Record<string, unknown>) : null;
 
-  // Fetch CRM notes
+  // Notes
   type NoteItem = { id: string; body: string; createdAt: string };
   const notes: NoteItem[] = [];
-  try {
-    const notesSnap = await db.collection('crm_contacts').doc(email).collection('notes').orderBy('createdAt', 'desc').get();
-    notesSnap.forEach((d: { id: string; data(): Record<string, unknown> }) => {
-      const nd = d.data();
-      const ts = nd.createdAt as { toDate?: () => Date } | string | null;
-      const dateStr = ts && typeof ts === 'object' && 'toDate' in ts && typeof ts.toDate === 'function'
-        ? ts.toDate().toISOString()
-        : typeof ts === 'string' ? ts : '';
-      notes.push({ id: d.id, body: String(nd.body ?? ''), createdAt: dateStr });
-    });
-  } catch { /* ignore */ }
+  notesSnap?.forEach((d: { id: string; data(): Record<string, unknown> }) => {
+    const nd = d.data();
+    const ts = nd.createdAt as { toDate?: () => Date } | string | null;
+    const dateStr = ts && typeof ts === 'object' && 'toDate' in ts && typeof ts.toDate === 'function'
+      ? ts.toDate().toISOString()
+      : typeof ts === 'string' ? ts : '';
+    notes.push({ id: d.id, body: String(nd.body ?? ''), createdAt: dateStr });
+  });
 
-  // Fetch messages
+  // Messages
   type MsgItem = { id: string; body: string; sentAt: string; read: boolean };
   const messages: MsgItem[] = [];
-  try {
-    const msgsSnap = await db.collection('check_status_app').doc(email).collection('messages').orderBy('sentAt', 'desc').get();
-    msgsSnap.forEach((d: { id: string; data(): Record<string, unknown> }) => {
-      const md = d.data();
-      const ts = md.sentAt as { toDate?: () => Date } | string | null;
-      const dateStr = ts && typeof ts === 'object' && 'toDate' in ts && typeof ts.toDate === 'function'
-        ? ts.toDate().toISOString()
-        : typeof ts === 'string' ? ts : '';
-      messages.push({ id: d.id, body: String(md.body ?? ''), sentAt: dateStr, read: Boolean(md.read) });
-    });
-  } catch { /* ignore */ }
+  msgsSnap?.forEach((d: { id: string; data(): Record<string, unknown> }) => {
+    const md = d.data();
+    const ts = md.sentAt as { toDate?: () => Date } | string | null;
+    const dateStr = ts && typeof ts === 'object' && 'toDate' in ts && typeof ts.toDate === 'function'
+      ? ts.toDate().toISOString()
+      : typeof ts === 'string' ? ts : '';
+    messages.push({ id: d.id, body: String(md.body ?? ''), sentAt: dateStr, read: Boolean(md.read) });
+  });
 
   // ── Extra form fields — all non-system fields not already in properties ──
   // These come from form submissions that used custom propertyKeys.

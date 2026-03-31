@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link';
 import Spinner from '@/components/ui/Spinner';
 import CustomSelect from '@/components/ui/CustomSelect';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight,
          SlidersHorizontal, X, Download, ChevronDown as TierChevron,
          Columns3, Check, Pencil, Trash2, RefreshCw } from 'lucide-react';
@@ -49,10 +50,10 @@ type Contact = {
   id: string; firstname: string; lastname: string; company: string;
   email: string; phone: string; state: string; industry: string; pr: string; createdate: string; zip: string; fundingUse: string;
 };
-type ApiResponse  = { contacts: Contact[]; total: number; page?: number; totalPages?: number; counts?: { sf: number; ef: number; uf: number }; };
+type ApiResponse  = { contacts: Contact[]; total: number; page?: number; totalPages?: number; counts?: { sf: number; ef: number; uf: number; lead: number }; };
 type SortKey      = 'name' | 'email' | 'pr' | 'state' | 'createdate';
 type SortDir      = 'asc' | 'desc';
-type TabKey       = '' | 'SF' | 'EF' | 'UF';
+type TabKey       = '' | 'SF' | 'EF' | 'UF' | 'LEAD';
 type ColKey       = 'company' | 'email' | 'phone' | 'type' | 'state' | 'industry' | 'createdate' | 'zip' | 'fundinguse';
 type EditableCol  = 'company' | 'type' | 'state' | 'industry' | 'zip';
 
@@ -275,10 +276,11 @@ export default function AdminContactsPage() {
   const [serverPage,       setServerPage]       = useState(1);
   const [serverTotalPages, setServerTotalPages] = useState(1);
   const [serverLoading,    setServerLoading]    = useState(true);
-  const [tierCounts,       setTierCounts]       = useState<{ sf: number; ef: number; uf: number } | null>(null);
+  const [tierCounts,       setTierCounts]       = useState<{ sf: number; ef: number; uf: number; lead: number } | null>(null);
   const [error,            setError]            = useState('');
   const [selectedIds,      setSelectedIds]      = useState<Set<string>>(new Set());
   const [bulkLoading,      setBulkLoading]      = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [tierMenuOpen,     setTierMenuOpen]     = useState(false);
   const [listMenuOpen,     setListMenuOpen]     = useState(false);
   const [lists,            setLists]            = useState<{ id: string; name: string }[]>([]);
@@ -373,8 +375,10 @@ export default function AdminContactsPage() {
     }
   }
 
-  const [prFilter,     setPrFilter]     = useState<TabKey>('');
-  const [stateFilter,  setStateFilter]  = useState('');
+  const [prFilter,      setPrFilter]      = useState<TabKey>('');
+  const [stateFilter,   setStateFilter]   = useState('');
+  const [industryFilter, setIndustryFilter] = useState('');
+  const [fundingFilter,  setFundingFilter]  = useState('');
   const [sortKey,      setSortKey]      = useState<SortKey>('createdate');
   const [sortDir,      setSortDir]      = useState<SortDir>('desc');
   const [showFilters,  setShowFilters]  = useState(false);
@@ -389,11 +393,13 @@ export default function AdminContactsPage() {
       sort:  sortKey,
       dir:   sortDir,
     });
-    if (search.trim())  p.set('search', search.trim().toLowerCase());
-    if (prFilter)       p.set('pr', prFilter);
-    if (stateFilter)    p.set('state', stateFilter);
+    if (search.trim())    p.set('search', search.trim().toLowerCase());
+    if (prFilter)         p.set('pr', prFilter);
+    if (stateFilter)      p.set('state', stateFilter);
+    if (industryFilter)   p.set('industry', industryFilter);
+    if (fundingFilter)    p.set('fundinguse', fundingFilter);
     return `/api/admin/users?${p.toString()}`;
-  }, [pageSize, sortKey, sortDir, search, prFilter, stateFilter]);
+  }, [pageSize, sortKey, sortDir, search, prFilter, stateFilter, industryFilter, fundingFilter]);
 
   const fetchPage = useCallback(async (pg: number) => {
     setServerLoading(true);
@@ -433,11 +439,22 @@ export default function AdminContactsPage() {
     return ['', ...Array.from(s).sort()];
   }, [contacts]);
 
+  const industryOptions = useMemo(() => {
+    const s = new Set(contacts.map(c => c.industry).filter(Boolean));
+    return ['', ...Array.from(s).sort()];
+  }, [contacts]);
+
+  const fundingOptions = useMemo(() => {
+    const s = new Set(contacts.map(c => c.fundingUse).filter(Boolean));
+    return ['', ...Array.from(s).sort()];
+  }, [contacts]);
+
   const stats = useMemo(() => ({
     total: serverTotal,
-    sf:    tierCounts?.sf ?? null,
-    ef:    tierCounts?.ef ?? null,
-    uf:    tierCounts?.uf ?? null,
+    sf:    tierCounts?.sf   ?? null,
+    ef:    tierCounts?.ef   ?? null,
+    uf:    tierCounts?.uf   ?? null,
+    lead:  tierCounts?.lead ?? null,
   }), [serverTotal, tierCounts]);
 
   function toggleSort(key: SortKey) {
@@ -445,7 +462,7 @@ export default function AdminContactsPage() {
     else { setSortKey(key); setSortDir('asc'); }
   }
   function navigate(pg: number) { goToServerPage(pg); }
-  function clearFilters() { setSearch(''); setPrFilter(''); setStateFilter(''); }
+  function clearFilters() { setSearch(''); setPrFilter(''); setStateFilter(''); setIndustryFilter(''); setFundingFilter(''); }
 
   // ── Selection ─────────────────────────────────────────────────────────────
   const allPageSelected  = tableRows.length > 0 && tableRows.every(c => selectedIds.has(c.id));
@@ -522,7 +539,11 @@ export default function AdminContactsPage() {
   }
 
   async function bulkDelete() {
-    if (!confirm(`Delete ${selectedIds.size} contact${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleteConfirm(true);
+  }
+
+  async function confirmBulkDelete() {
+    setBulkDeleteConfirm(false);
     setBulkLoading(true);
     const ids = Array.from(selectedIds);
     try {
@@ -637,16 +658,18 @@ export default function AdminContactsPage() {
   }
 
   const TABS: { key: TabKey; label: string; count: number | null }[] = [
-    { key: '',   label: 'All Contacts', count: stats.total },
-    { key: 'SF', label: 'Starter',  count: stats.sf },
-    { key: 'EF', label: 'Growth',   count: stats.ef },
-    { key: 'UF', label: 'Unlimited',      count: stats.uf },
+    { key: '',     label: 'All Contacts', count: stats.total },
+    { key: 'SF',   label: 'Starter',      count: stats.sf   },
+    { key: 'EF',   label: 'Growth',       count: stats.ef   },
+    { key: 'UF',   label: 'Unlimited',    count: stats.uf   },
+    { key: 'LEAD', label: 'Leads',        count: stats.lead },
   ];
 
   const activeCols = ALL_COLS.filter(c => visibleCols.has(c.key));
   const colCount   = 2 + activeCols.length;
 
   return (
+    <>
     <div className="flex flex-col h-full -mx-6 -my-6">
 
       {/* ── Tabs bar ── */}
@@ -736,22 +759,45 @@ export default function AdminContactsPage() {
         </div>
       ) : (
         <div className="flex items-center gap-2 px-6 py-2.5 bg-white border-b border-slate-200">
-          <button onClick={() => setShowFilters(v => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border transition-colors ${
-              showFilters || stateFilter ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white'
-            }`}>
-            <SlidersHorizontal size={12} /> Filters
-            {stateFilter && <span className="bg-blue-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">1</span>}
-          </button>
+          {(() => {
+            const activeFilterCount = [stateFilter, industryFilter, fundingFilter].filter(Boolean).length;
+            return (
+              <button onClick={() => setShowFilters(v => !v)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold rounded-md border transition-colors ${
+                  showFilters || activeFilterCount > 0 ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white'
+                }`}>
+                <SlidersHorizontal size={12} /> Filters
+                {activeFilterCount > 0 && <span className="bg-blue-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">{activeFilterCount}</span>}
+              </button>
+            );
+          })()}
 
           {showFilters && (
-            <CustomSelect value={stateFilter} onChange={setStateFilter}
-              options={stateOptions.map(s => ({ value: s, label: s || 'All States' }))}
-              placeholder="All States" className="w-36" />
+            <>
+              <CustomSelect value={stateFilter} onChange={setStateFilter}
+                options={stateOptions.map(s => ({ value: s, label: s || 'All States' }))}
+                placeholder="All States" className="w-36" />
+              <CustomSelect value={industryFilter} onChange={setIndustryFilter}
+                options={industryOptions.map(s => ({ value: s, label: s || 'All Industries' }))}
+                placeholder="All Industries" className="w-40" />
+              <CustomSelect value={fundingFilter} onChange={setFundingFilter}
+                options={fundingOptions.map(s => ({ value: s, label: s || 'All Funding Uses' }))}
+                placeholder="All Funding Uses" className="w-44" />
+            </>
           )}
           {stateFilter && (
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-1">
               {stateFilter}<button onClick={() => setStateFilter('')}><X size={10} /></button>
+            </span>
+          )}
+          {industryFilter && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-1">
+              {industryFilter}<button onClick={() => setIndustryFilter('')}><X size={10} /></button>
+            </span>
+          )}
+          {fundingFilter && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2.5 py-1">
+              {fundingFilter}<button onClick={() => setFundingFilter('')}><X size={10} /></button>
             </span>
           )}
           {search && (
@@ -759,7 +805,7 @@ export default function AdminContactsPage() {
               &quot;{search}&quot;<button onClick={() => setSearch('')}><X size={10} /></button>
             </span>
           )}
-          {(search || prFilter || stateFilter) && (
+          {(search || prFilter || stateFilter || industryFilter || fundingFilter) && (
             <button onClick={clearFilters} className="text-[11px] text-slate-400 hover:text-slate-600 underline ml-1">Clear all</button>
           )}
 
@@ -1053,5 +1099,14 @@ export default function AdminContactsPage() {
       </div>
 
     </div>
+    <ConfirmDialog
+      open={bulkDeleteConfirm}
+      title="Delete Contacts"
+      message={`Delete ${selectedIds.size} contact${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`}
+      confirmLabel="Delete"
+      onConfirm={() => void confirmBulkDelete()}
+      onCancel={() => setBulkDeleteConfirm(false)}
+    />
+    </>
   );
 }

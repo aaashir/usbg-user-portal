@@ -44,9 +44,10 @@ const LOGO_URL = 'https://usbusinessgrants.org/assets/flag-logo4.png';
 
 /** Base HTML wrapper for all outgoing emails */
 function baseTemplate(bodyHtml: string, unsubscribeUrl?: string) {
+  const prefsUrl = `${PORTAL_URL}/account`;
   const footerExtra = unsubscribeUrl
-    ? `<br><a href="${unsubscribeUrl}" style="color:#94a3b8;font-size:11px">Unsubscribe</a>`
-    : '';
+    ? `<br><a href="${prefsUrl}" style="color:#94a3b8;font-size:11px">Manage Preferences</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="${unsubscribeUrl}" style="color:#94a3b8;font-size:11px">Unsubscribe</a>`
+    : `<br><a href="${prefsUrl}" style="color:#94a3b8;font-size:11px">Manage Preferences</a>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -179,6 +180,7 @@ export async function sendNewMessageEmail(opts: {
        </div>`
     : '';
 
+  const unsubToken = await getUnsubToken(opts.to);
   const html = baseTemplate(`
     <p style="font-size:15px;color:#1e293b;margin:0 0 12px">Hello ${escHtml(opts.name)},</p>
     <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 8px">
@@ -189,7 +191,7 @@ export async function sendNewMessageEmail(opts: {
     <p style="font-size:13px;color:#94a3b8;margin:16px 0 0">
       If you have trouble logging in, please reply to this email for assistance.
     </p>
-  `);
+  `, unsubUrl(unsubToken));
 
   try {
     await transport.sendMail({
@@ -250,6 +252,7 @@ export async function sendProgressUpdateEmail(opts: {
       </p>
     </div>` : '';
 
+  const unsubToken = await getUnsubToken(opts.to);
   const html = baseTemplate(`
     <p style="font-size:15px;color:#1e293b;margin:0 0 12px">Hello ${escHtml(opts.name)},</p>
     <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 16px">
@@ -263,7 +266,7 @@ export async function sendProgressUpdateEmail(opts: {
     <p style="font-size:13px;color:#94a3b8;margin:16px 0 0">
       Log in to your portal at any time to check your full application status and messages.
     </p>
-  `);
+  `, unsubUrl(unsubToken));
 
   await transport.sendMail({
     from: FROM_ADDRESS,

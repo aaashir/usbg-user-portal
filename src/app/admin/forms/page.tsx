@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, FileText, ExternalLink, Trash2, ToggleLeft, ToggleRight, Users, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type FormRecord = {
   id: string;
@@ -36,6 +37,7 @@ export default function FormsPage() {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const [confirmFormId, setConfirmFormId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -79,7 +81,11 @@ export default function FormsPage() {
   }
 
   async function deleteForm(id: string) {
-    if (!confirm('Delete this form and all its submissions?')) return;
+    setConfirmFormId(id);
+  }
+
+  async function confirmDeleteForm(id: string) {
+    setConfirmFormId(null);
     setForms(f => f.filter(x => x.id !== id));
     await fetch(`/api/admin/forms/${id}`, { method: 'DELETE', headers: adminHeaders() });
   }
@@ -275,6 +281,14 @@ export default function FormsPage() {
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={confirmFormId !== null}
+        title="Delete Form"
+        message="Delete this form and all its submissions? This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => confirmFormId && void confirmDeleteForm(confirmFormId)}
+        onCancel={() => setConfirmFormId(null)}
+      />
     </div>
   );
 }

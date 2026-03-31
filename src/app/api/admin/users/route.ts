@@ -54,6 +54,8 @@ export async function GET(req: Request) {
   const search   = (searchParams.get('search') ?? '').toLowerCase().trim();
   const prFilter = (searchParams.get('pr') ?? '').trim();
   const stateFilter = (searchParams.get('state') ?? '').trim();
+  const industryFilter = (searchParams.get('industry') ?? '').trim();
+  const fundingFilter  = (searchParams.get('fundinguse') ?? '').trim();
   const sortKey  = searchParams.get('sort') ?? 'createdate';
   const sortDir  = searchParams.get('dir')  ?? 'desc';
 
@@ -67,15 +69,19 @@ export async function GET(req: Request) {
     col.where('pr', '==', 'UF').count().get(),
     col.count().get(),
   ]);
-  const counts = {
-    sf: (sfSnap.data() as { count: number }).count + (sfTrueSnap.data() as { count: number }).count,
-    ef: (efSnap.data() as { count: number }).count,
-    uf: (ufSnap.data() as { count: number }).count,
-  };
+  const sfCount    = (sfSnap.data() as { count: number }).count + (sfTrueSnap.data() as { count: number }).count;
+  const efCount    = (efSnap.data() as { count: number }).count;
+  const ufCount    = (ufSnap.data() as { count: number }).count;
   const grandTotal = (totalSnap.data() as { count: number }).count;
+  const counts = {
+    sf:   sfCount,
+    ef:   efCount,
+    uf:   ufCount,
+    lead: Math.max(0, grandTotal - sfCount - efCount - ufCount),
+  };
 
   // ── No filters — fast paginated query ───────────────────────────────────
-  if (!search && !prFilter && !stateFilter) {
+  if (!search && !prFilter && !stateFilter && !industryFilter && !fundingFilter) {
     const snap = await col
       .select(...SELECTED_FIELDS)
       .orderBy('createDate', 'desc')
@@ -132,13 +138,25 @@ export async function GET(req: Request) {
       }
     }
 
-    // Apply PR + state filters on the (already small) result set
-    if (prFilter) {
+    // Apply PR + state + industry + fundingUse filters on the (already small) result set
+    if (prFilter === 'LEAD') {
+      const PLAN_VALUES = new Set(['SF', 'TRUE', 'EF', 'UF']);
+      docs = docs.filter(c => !PLAN_VALUES.has(c.pr));
+    } else if (prFilter) {
       docs = docs.filter(c => c.pr === prFilter || (prFilter === 'SF' && c.pr === 'TRUE'));
     }
-    if (stateFilter) {
-      docs = docs.filter(c => c.state === stateFilter);
-    }
+    if (stateFilter)    docs = docs.filter(c => c.state      === stateFilter);
+    if (industryFilter) docs = docs.filter(c => c.industry   === industryFilter);
+    if (fundingFilter)  docs = docs.filter(c => c.fundingUse === fundingFilter);
+
+  } else if (prFilter === 'LEAD') {
+    // Leads — contacts with no recognised plan value; must fetch all and filter
+    const PLAN_VALUES = new Set(['SF', 'TRUE', 'EF', 'UF']);
+    const snap = await col.select(...SELECTED_FIELDS).get();
+    docs = snap.docs.map(docToContact).filter(c => !PLAN_VALUES.has(c.pr));
+    if (stateFilter)    docs = docs.filter(c => c.state      === stateFilter);
+    if (industryFilter) docs = docs.filter(c => c.industry   === industryFilter);
+    if (fundingFilter)  docs = docs.filter(c => c.fundingUse === fundingFilter);
 
   } else if (prFilter) {
     // PR tab filter — fetch the whole tier subset (max ~1300), sort in-memory
@@ -153,14 +171,21 @@ export async function GET(req: Request) {
       }
     }
 
-    if (stateFilter) {
-      docs = docs.filter(c => c.state === stateFilter);
-    }
+    if (stateFilter)    docs = docs.filter(c => c.state      === stateFilter);
+    if (industryFilter) docs = docs.filter(c => c.industry   === industryFilter);
+    if (fundingFilter)  docs = docs.filter(c => c.fundingUse === fundingFilter);
 
-  } else if (stateFilter) {
+  } else if (stateFilter && !industryFilter && !fundingFilter) {
     // State-only filter
     const snap = await col.select(...SELECTED_FIELDS).where('state', '==', stateFilter).get();
     docs = snap.docs.map(docToContact);
+  } else {
+    // Industry/funding-only or combined — fetch all and filter in-memory
+    const snap = await col.select(...SELECTED_FIELDS).get();
+    docs = snap.docs.map(docToContact);
+    if (stateFilter)    docs = docs.filter(c => c.state      === stateFilter);
+    if (industryFilter) docs = docs.filter(c => c.industry   === industryFilter);
+    if (fundingFilter)  docs = docs.filter(c => c.fundingUse === fundingFilter);
   }
 
   // Sort + paginate in-memory

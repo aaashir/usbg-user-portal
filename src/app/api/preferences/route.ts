@@ -1,38 +1,17 @@
 export const runtime = 'nodejs';
 
-/**
- * Customer-facing email preferences API.
- * Uses Firebase ID token (not admin token) to identify the user.
- */
-
 import { NextResponse } from 'next/server';
 import { getAdminFirebase } from '../admin/_shared';
-import { getAuth }          from 'firebase-admin/auth';
-import { getApps, initializeApp, cert } from 'firebase-admin/app';
 
-async function verifyUserToken(req: Request): Promise<string | null> {
-  const authHeader = req.headers.get('authorization') ?? '';
-  if (!authHeader.startsWith('Bearer ')) return null;
-  const token = authHeader.slice(7);
-
-  try {
-    const projectId     = process.env.FIREBASE_ADMIN_PROJECT_ID ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? '';
-    const clientEmail   = process.env.FIREBASE_ADMIN_CLIENT_EMAIL ?? '';
-    const privateKeyRaw = process.env.FIREBASE_ADMIN_PRIVATE_KEY ?? '';
-    const privateKey    = privateKeyRaw.replace(/\\n/g, '\n');
-
-    if (!projectId || !clientEmail || !privateKey) return null;
-
-    if (!getApps().length) initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
-
-    const decoded = await getAuth().verifyIdToken(token);
-    return decoded.email ?? null;
-  } catch { return null; }
+function getEmail(req: Request): string | null {
+  const authHeader = req.headers.get('x-user-email') ?? '';
+  const email = authHeader.trim().toLowerCase();
+  return email.includes('@') ? email : null;
 }
 
-/** GET /api/preferences — get current email prefs */
+/** GET /api/preferences */
 export async function GET(req: Request) {
-  const email = await verifyUserToken(req);
+  const email = getEmail(req);
   if (!email) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   const db = await getAdminFirebase();
@@ -43,13 +22,13 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     unsubscribed:       data?.unsubscribed === true,
-    emailNotifications: data?.emailNotifications !== false, // default on
+    emailNotifications: data?.emailNotifications !== false,
   });
 }
 
-/** PATCH /api/preferences — update email prefs */
+/** PATCH /api/preferences */
 export async function PATCH(req: Request) {
-  const email = await verifyUserToken(req);
+  const email = getEmail(req);
   if (!email) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   const db = await getAdminFirebase();

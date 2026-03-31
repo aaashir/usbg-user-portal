@@ -38,9 +38,8 @@ export default function AccountPage() {
   useEffect(() => {
     if (!email) return;
     setEmailPrefsLoading(true);
-    getAuth().currentUser?.getIdToken()
-      .then(tok => fetch('/api/preferences', { headers: { Authorization: `Bearer ${tok}` } }))
-      .then(r => r?.ok ? r.json() as Promise<{ unsubscribed: boolean; emailNotifications: boolean }> : null)
+    fetch('/api/preferences', { headers: { 'x-user-email': email } })
+      .then(r => r.ok ? r.json() as Promise<{ unsubscribed: boolean; emailNotifications: boolean }> : null)
       .then(d => { if (d) setEmailPrefs(d); })
       .catch(() => {})
       .finally(() => setEmailPrefsLoading(false));
@@ -49,10 +48,9 @@ export default function AccountPage() {
   async function saveEmailPref(update: Partial<{ unsubscribed: boolean; emailNotifications: boolean }>) {
     setEmailPrefsSaving(true); setEmailPrefsMsg('');
     try {
-      const tok = await getAuth().currentUser?.getIdToken();
       const res = await fetch('/api/preferences', {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        headers: { 'x-user-email': email, 'Content-Type': 'application/json' },
         body: JSON.stringify(update),
       });
       if (res.ok) {

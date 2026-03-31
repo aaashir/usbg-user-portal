@@ -230,10 +230,12 @@ export default function BulkEmailPage() {
           <Zap size={18} className="text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-[#1E293B] tracking-tight">Bulk Email</h1>
+          <h1 className="text-2xl font-bold text-[#1E293B] tracking-tight">Email Marketing</h1>
           <p className="text-slate-500 text-sm mt-0.5">
             Send templated or custom emails to a filtered group of contacts from{' '}
-            <span className="font-semibold text-slate-700">applications@usbusinessgrants.org</span>.
+            <span className="font-semibold text-slate-700">
+              {smtpAccounts.find(a => a.id === fromAccountId)?.user ?? 'applications@usbusinessgrants.org'}
+            </span>.
           </p>
         </div>
       </div>
@@ -433,7 +435,7 @@ export default function BulkEmailPage() {
                     }`}
                   >
                     <Mail size={12} />
-                    {a.label ? `${a.label} — ` : ''}{a.fromName || a.user}
+                    {a.label || a.fromName || a.user}
                     {a.isDefault && <span className="text-[10px] text-slate-400">(default)</span>}
                   </button>
                 ))}

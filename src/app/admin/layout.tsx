@@ -36,7 +36,7 @@ const NAV: NavEntry[] = [
     label: 'Automations',
     icon: Zap,
     children: [
-      { label: 'Bulk Email', href: '/admin/automations/bulk-email' },
+      { label: 'Email Marketing', href: '/admin/automations/bulk-email' },
     ],
   },
   { label: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
@@ -56,7 +56,7 @@ const ALL_FLAT_NAV: { label: string; href: string }[] = [
   { label: 'Lists',      href: '/admin/contacts/lists'          },
   { label: 'Forms',      href: '/admin/forms'                   },
   { label: 'Emails',     href: '/admin/marketing/emails'        },
-  { label: 'Bulk Email', href: '/admin/automations/bulk-email'  },
+  { label: 'Email Marketing', href: '/admin/automations/bulk-email'  },
   { label: 'Analytics',  href: '/admin/analytics'               },
   { label: 'Settings',        href: '/admin/settings'               },
   { label: 'Users & Access', href: '/admin/settings/users'        },

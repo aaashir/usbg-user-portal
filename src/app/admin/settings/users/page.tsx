@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Users, Plus, Trash2, Shield, ShieldCheck, ChevronDown, Check, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import Spinner from '@/components/ui/Spinner';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type AdminUser = {
   uid: string; email: string; displayName: string;
@@ -33,6 +34,7 @@ export default function UsersPage() {
   const [createError, setCreateError] = useState('');
 
   const [deletingUid, setDeletingUid] = useState<string | null>(null);
+  const [confirmUid,  setConfirmUid]  = useState<string | null>(null);
   const [updatingUid, setUpdatingUid] = useState<string | null>(null);
 
   async function loadUsers() {
@@ -79,7 +81,11 @@ export default function UsersPage() {
   }
 
   async function handleDelete(uid: string) {
-    if (!confirm('Remove this admin user? They will lose all access immediately.')) return;
+    setConfirmUid(uid);
+  }
+
+  async function confirmDeleteUser(uid: string) {
+    setConfirmUid(null);
     setDeletingUid(uid);
     try {
       await fetch(`/api/admin/admin-users/${uid}`, {
@@ -255,6 +261,14 @@ export default function UsersPage() {
           </form>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmUid !== null}
+        title="Remove Admin User"
+        message="Remove this admin user? They will lose all access immediately."
+        confirmLabel="Remove"
+        onConfirm={() => confirmUid && void confirmDeleteUser(confirmUid)}
+        onCancel={() => setConfirmUid(null)}
+      />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FieldType = 'text' | 'email' | 'phone' | 'textarea' | 'number' | 'date' | 'select' | 'checkbox' | 'multi_checkbox';
@@ -535,6 +536,7 @@ export default function FormEditorPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [subsLoading, setSubsLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteAllSubs, setConfirmDeleteAllSubs] = useState(false);
 
   // share copy state
   const [copiedEmbed, setCopiedEmbed] = useState(false);
@@ -694,7 +696,11 @@ export default function FormEditorPage() {
   }
 
   async function deleteAllSubmissions() {
-    if (!confirm(`Delete all ${submissions.length} submissions? This cannot be undone.`)) return;
+    setConfirmDeleteAllSubs(true);
+  }
+
+  async function confirmDeleteAllSubmissions() {
+    setConfirmDeleteAllSubs(false);
     await fetch(`/api/admin/forms/${formId}/submissions?all=1`, { method: 'DELETE', headers: adminHeaders() });
     setSubmissions([]);
     setForm(f => f ? { ...f, submissionCount: 0 } : f);
@@ -1106,6 +1112,14 @@ export default function FormEditorPage() {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDeleteAllSubs}
+        title="Delete All Submissions"
+        message={`Delete all ${submissions.length} submissions? This cannot be undone.`}
+        confirmLabel="Delete All"
+        onConfirm={() => void confirmDeleteAllSubmissions()}
+        onCancel={() => setConfirmDeleteAllSubs(false)}
+      />
     </div>
   );
 }

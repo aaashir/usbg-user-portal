@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Users, ChevronRight, X, Check, Search } from 'lucide-react';
 import Spinner from '@/components/ui/Spinner';
 import Link from 'next/link';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type CrmList = {
   id: string;
@@ -28,6 +29,7 @@ export default function ListsPage() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState('');
   const [deletingId,  setDeletingId]  = useState<string | null>(null);
+  const [confirmListId, setConfirmListId] = useState<string | null>(null);
 
   // Create modal
   const [modalOpen,   setModalOpen]   = useState(false);
@@ -80,7 +82,11 @@ export default function ListsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this list? Contacts will not be deleted.')) return;
+    setConfirmListId(id);
+  }
+
+  async function confirmDeleteList(id: string) {
+    setConfirmListId(null);
     setDeletingId(id);
     try {
       await fetch(`/api/admin/lists/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
@@ -268,6 +274,14 @@ export default function ListsPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmListId !== null}
+        title="Delete List"
+        message="Delete this list? Contacts will not be deleted."
+        confirmLabel="Delete"
+        onConfirm={() => confirmListId && void confirmDeleteList(confirmListId)}
+        onCancel={() => setConfirmListId(null)}
+      />
     </div>
   );
 }

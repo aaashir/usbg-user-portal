@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Check, X, Mail, Eye, Code2, AlignLeft } from 'lucide-react';
 import Spinner from '@/components/ui/Spinner';
 import VariableTextarea, { TEMPLATE_VARIABLES } from '@/components/ui/VariableTextarea';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 
 type Template = {
   id: string;
@@ -93,6 +94,7 @@ export default function EmailsPage() {
 
   const [previewId,   setPreviewId]   = useState<string | null>(null);
   const [deletingId,  setDeletingId]  = useState<string | null>(null);
+  const [confirmId,   setConfirmId]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,7 +158,11 @@ export default function EmailsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this template?')) return;
+    setConfirmId(id);
+  }
+
+  async function confirmDelete(id: string) {
+    setConfirmId(null);
     setDeletingId(id);
     try {
       await fetch(`/api/admin/email-templates/${id}`, {
@@ -414,6 +420,15 @@ export default function EmailsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Delete Template"
+        message="Delete this template? This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => confirmId && void confirmDelete(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }

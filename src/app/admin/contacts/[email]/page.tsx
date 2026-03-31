@@ -803,7 +803,12 @@ export default function AdminContactDetailPage() {
               </div>
               <p className="text-xs text-slate-400 mb-4">
                 Sends from{' '}
-                <span className="font-semibold text-slate-600">applications@usbusinessgrants.org</span> directly to{' '}
+                <span className="font-semibold text-slate-600">
+                  {(() => {
+                    const acct = smtpAccounts.find(a => a.id === fromAccountId) ?? smtpAccounts[0];
+                    return acct ? (acct.fromName ? `${acct.fromName} <${acct.user}>` : acct.user) : 'applications@usbusinessgrants.org';
+                  })()}
+                </span> directly to{' '}
                 <span className="font-semibold text-slate-600">{email}</span>.
               </p>
 

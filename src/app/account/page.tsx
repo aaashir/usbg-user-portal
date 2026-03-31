@@ -3,8 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { CreditCard, Zap, XCircle, Bell, BellOff } from 'lucide-react';
 
 function prop(properties: Record<string, unknown> | undefined, key: string): string {

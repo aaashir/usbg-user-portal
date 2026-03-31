@@ -44,32 +44,44 @@ const LOGO_URL = 'https://usbusinessgrants.org/assets/flag-logo4.png';
 
 /** Base HTML wrapper for all outgoing emails */
 function baseTemplate(bodyHtml: string, unsubscribeUrl?: string) {
-  const prefsUrl = `${PORTAL_URL}/account`;
-  const footerExtra = unsubscribeUrl
-    ? `<br><a href="${prefsUrl}" style="color:#94a3b8;font-size:11px">Manage Preferences</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="${unsubscribeUrl}" style="color:#94a3b8;font-size:11px">Unsubscribe</a>`
-    : `<br><a href="${prefsUrl}" style="color:#94a3b8;font-size:11px">Manage Preferences</a>`;
+  const privacyUrl  = 'https://usbusinessgrants.org/privacy';
+  const contactUrl  = 'https://usbusinessgrants.org/contact';
+  const unsubLink   = unsubscribeUrl
+    ? `<a href="${unsubscribeUrl}" style="color:#4a6cf7;text-decoration:none;font-size:13px">Unsubscribe</a>`
+    : '';
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0">
   <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #dde3ec;max-width:600px;width:100%;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
-      <!-- Header -->
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;max-width:600px;width:100%;border:1px solid #e2e8f0">
+      <!-- Logo header -->
       <tr>
-        <td style="background:#1d2d3e;padding:20px 32px">
-          <img src="${LOGO_URL}" alt="US Business Grants" height="36" style="display:block;height:36px;width:auto" />
+        <td align="center" style="padding:28px 32px 20px">
+          <img src="${LOGO_URL}" alt="US Business Grants" height="52" style="display:block;height:52px;width:auto" />
         </td>
       </tr>
+      <!-- Divider -->
+      <tr><td style="padding:0 32px"><hr style="border:none;border-top:1px solid #e2e8f0;margin:0"></td></tr>
       <!-- Body -->
-      <tr><td style="padding:36px 32px">${bodyHtml}</td></tr>
+      <tr><td style="padding:32px 40px;font-size:14px;color:#1e293b;line-height:1.7">${bodyHtml}</td></tr>
       <!-- Footer -->
       <tr>
-        <td style="background:#f4f6f8;padding:16px 32px;border-top:1px solid #dde3ec">
-          <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.8">
-            You received this email because you applied for a grant through US Business Grants.<br>
-            Questions? Log in to your <a href="${PORTAL_URL}" style="color:#0E468F;text-decoration:none">secure portal</a>.${footerExtra}
-          </p>
+        <td style="border-top:1px dashed #cbd5e1;padding:20px 32px">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="vertical-align:top">
+                <img src="${LOGO_URL}" alt="US Business Grants" height="36" style="display:block;height:36px;width:auto;margin-bottom:8px" />
+                <p style="margin:0;font-size:12px;color:#64748b;line-height:1.6">1 Boston Place<br>Boston, MA 02108</p>
+              </td>
+              <td style="vertical-align:top;text-align:right">
+                <a href="${privacyUrl}" style="color:#4a6cf7;text-decoration:none;font-size:13px">Privacy</a><br>
+                <a href="${contactUrl}" style="color:#4a6cf7;text-decoration:none;font-size:13px">Contact us</a><br>
+                ${unsubLink}
+              </td>
+            </tr>
+          </table>
         </td>
       </tr>
     </table>
@@ -182,15 +194,17 @@ export async function sendNewMessageEmail(opts: {
 
   const unsubToken = await getUnsubToken(opts.to);
   const html = baseTemplate(`
-    <p style="font-size:15px;color:#1e293b;margin:0 0 12px">Hello ${escHtml(opts.name)},</p>
-    <p style="font-size:14px;color:#475569;line-height:1.6;margin:0 0 8px">
-      You have received a <strong>new message</strong> regarding your grant application from US Business Grants.
-    </p>
+    <p style="margin:0 0 16px">Dear ${escHtml(opts.name)},</p>
+    <p style="margin:0 0 16px">You have received a secure message.</p>
+    <p style="margin:0 0 16px">Please log in to your account to review the message, as it may include important updates regarding your selected grants, application progress, or next steps that may require your attention.</p>
     ${messageHtml}
-    ${ctaButton('Log In to Reply', PORTAL_URL)}
-    <p style="font-size:13px;color:#94a3b8;margin:16px 0 0">
-      If you have trouble logging in, please reply to this email for assistance.
-    </p>
+    <p style="margin:0 0 24px">For your privacy and security, message details are not included in this email and can only be accessed within your secure account.</p>
+    ${ctaButton('Log In to View Message', PORTAL_URL)}
+    <p style="margin:24px 0 16px">We recommend reviewing your message promptly to ensure you do not miss any important or time-sensitive updates.</p>
+    <p style="margin:0 0 16px">If you did not expect this notification or believe it was sent in error, please contact our support team. If you need help accessing your account or have any questions, our team is here to assist.</p>
+    <p style="margin:0 0 4px">Sincerely,</p>
+    <p style="margin:0 0 4px">US Business Grants Team</p>
+    <p style="margin:0"><a href="mailto:support@usbusinessgrants.org" style="color:#4a6cf7;text-decoration:none">support@usbusinessgrants.org</a></p>
   `, unsubUrl(unsubToken));
 
   try {
